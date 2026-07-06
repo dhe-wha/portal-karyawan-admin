@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dashboard Admin — Portal Karyawan</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif}
+body{background:#eef1f5;color:#1a1a2e}
+header{background:linear-gradient(135deg,#1e3a5f,#16213e);color:#fff;padding:14px 26px;display:flex;align-items:center;gap:12px}
+header h1{font-size:1.05rem}header .sub{font-size:.7rem;opacity:.6}
+#who{margin-left:auto;font-size:.8rem;opacity:.9;display:flex;gap:14px;align-items:center}
+#who a{color:#ffd; cursor:pointer;font-size:.75rem;opacity:.8;text-decoration:underline}
+.wrap{max-width:1080px;margin:22px auto;padding:0 16px}
+.card{background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:24px;margin-bottom:18px}
+label{font-size:.76rem;font-weight:600;color:#456;display:block;margin:10px 0 5px}
+input[type=text],input[type=email],select{width:100%;max-width:360px;border:1.5px solid #d7dee7;border-radius:9px;padding:10px 12px;font-size:.88rem}
+button{background:linear-gradient(135deg,#2563eb,#1e40af);color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:.85rem;font-weight:600;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+button.sec{background:#eef2f8;color:#1e3a5f}
+.err{color:#dc2626;font-size:.8rem;margin-top:9px}.ok{color:#059669;font-size:.8rem;margin-top:9px}
+.hidden{display:none}
+/* tabs */
+.tabs{display:flex;gap:6px;border-bottom:2px solid #e3e8ef;margin-bottom:18px;flex-wrap:wrap}
+.tabbtn{background:none;color:#5a6b80;border:none;border-bottom:3px solid transparent;border-radius:0;padding:11px 16px;font-weight:600;font-size:.86rem}
+.tabbtn.on{color:#1e3a5f;border-bottom-color:#2563eb}
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.sc{background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.07);border-left:4px solid #2563eb}
+.sc .n{font-size:1.5rem;font-weight:700;color:#1e3a5f}.sc .l{font-size:.7rem;color:#889;text-transform:uppercase;letter-spacing:.4px}
+.sc.g{border-color:#059669}.sc.r{border-color:#dc2626}.sc.o{border-color:#f59e0b}
+/* table */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar input,.toolbar select{max-width:220px;margin:0}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{background:#1e3a5f;color:#fff;text-align:left;padding:8px 10px;font-size:.68rem;text-transform:uppercase;position:sticky;top:0}
+td{padding:7px 10px;border-bottom:1px solid #eef2f6;vertical-align:middle}
+tr:hover td{background:#f6f9fd}
+.tblwrap{max-height:60vh;overflow:auto;border:1px solid #e5eaf0;border-radius:10px}
+.pill{font-size:.62rem;padding:2px 8px;border-radius:9px;font-weight:700}
+.pill.a{background:#e7f8ef;color:#059669}.pill.n{background:#fdeaea;color:#dc2626}
+.mini{padding:5px 10px;font-size:.72rem;border-radius:7px}
+#drop{border:2.5px dashed #b7c4d4;border-radius:12px;padding:34px 18px;text-align:center;color:#67748a;font-size:.86rem;cursor:pointer}
+#drop.over{border-color:#2563eb;background:#eef4ff}
+#drop b{color:#1e3a5f}
+.hint{font-size:.73rem;color:#8a94a3;margin-top:9px;line-height:1.6}
+.s-ok{color:#059669;font-weight:700}.s-err{color:#dc2626;font-weight:700}.s-proc{color:#b45309}
+dialog{border:none;border-radius:14px;padding:0;box-shadow:0 12px 50px rgba(0,0,0,.3);max-width:420px;width:92%}
+dialog::backdrop{background:rgba(10,16,30,.5)}
+.dlg-h{background:#1e3a5f;color:#fff;padding:14px 20px;font-weight:600}
+.dlg-b{padding:20px}
+.foto{width:120px;height:120px;border-radius:12px;object-fit:cover;background:#e6ebf2;border:1px solid #dbe2ec}
+</style>
+</head>
+<body>
+<header>
+  <div>🗂️</div>
+  <div><h1>Dashboard Admin — Portal Karyawan</h1><div class="sub">BJA · BTL · IGL</div></div>
+  <div id="who" class="hidden"><span id="whoName"></span><a id="btnLogout">Keluar</a></div>
+</header>
+<div class="wrap">
+
+  <!-- LOGIN -->
+  <div class="card" id="cardLogin">
+    <h2 style="font-size:1rem;color:#1e3a5f;margin-bottom:4px">Login Admin</h2>
+    <div id="stepNik">
+      <label>NIK Admin</label>
+      <input type="text" id="nik" value="999001">
+      <label>Email Admin</label>
+      <input type="email" id="email" placeholder="email admin terdaftar">
+      <br><button id="btnOtp" style="margin-top:14px">Kirim Kode OTP ke WhatsApp</button>
+      <div id="msg1" class="err"></div>
+    </div>
+    <div id="stepOtp" class="hidden">
+      <label>Kode OTP (cek WhatsApp)</label>
+      <input type="text" id="otp" maxlength="6" placeholder="6 digit">
+      <br><button id="btnVer" style="margin-top:14px">Verifikasi &amp; Masuk</button>
+      <div id="msg2" class="err"></div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dash" class="hidden">
+    <div class="tabs">
+      <button class="tabbtn on" data-t="upload">📤 Upload Slip</button>
+      <button class="tabbtn" data-t="data">👥 Data Karyawan</button>
+      <button class="tabbtn" data-t="lapor">📊 Laporan Download</button>
+      <button class="tabbtn" data-t="foto">🖼️ Foto &amp; BPJS</button>
+    </div>
+
+    <!-- TAB UPLOAD -->
+    <div class="card tabpane" id="pane-upload">
+      <h3 style="font-size:.98rem;color:#1e3a5f;margin-bottom:12px">Upload Slip Gaji (PDF)</h3>
+      <div id="drop">Tarik &amp; letakkan PDF di sini, atau <b>klik untuk pilih file</b><br>
+        <span style="font-size:.74rem">Format: <b>ThnBln_NIK_Nama.pdf</b> — contoh: 202605_10B0000016_HARIYANTO_PADUENGO.pdf</span></div>
+      <input type="file" id="pick" accept="application/pdf" multiple class="hidden">
+      <div class="hint">Slip berlaku 3 bulan sejak periodenya, lalu file terhapus otomatis (riwayat &amp; catatan download tetap tersimpan). Upload ulang NIK+periode sama akan menimpa.</div>
+      <div class="tblwrap hidden" id="upWrap" style="margin-top:14px">
+        <table><thead><tr><th>File</th><th>NIK</th><th>Periode</th><th>Karyawan</th><th>Status</th></tr></thead>
+        <tbody id="upBody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- TAB DATA -->
+    <div class="card tabpane hidden" id="pane-data">
+      <div class="stats" id="dataStats"></div>
+      <div class="toolbar">
+        <input type="text" id="cari" placeholder="Cari nama / NIK…">
+        <select id="fPT"><option value="">Semua PT</option><option>BJA</option><option>BTL</option><option>IGL</option></select>
+        <select id="fLengkap"><option value="">Semua kelengkapan</option><option value="belum">Belum lengkap HP/email</option><option value="lengkap">Sudah lengkap</option></select>
+        <button class="sec mini" id="btnReloadData">↻ Muat ulang</button>
+      </div>
+      <div class="tblwrap">
+        <table><thead><tr><th>NIK</th><th>Nama</th><th>PT</th><th>Bagian</th><th>No. WhatsApp</th><th>Email</th><th></th></tr></thead>
+        <tbody id="dataBody"></tbody></table>
+      </div>
+      <div class="hint" id="dataInfo"></div>
+    </div>
+
+    <!-- TAB LAPORAN -->
+    <div class="card tabpane hidden" id="pane-lapor">
+      <div class="toolbar">
+        <label style="margin:0">Periode slip:</label>
+        <select id="lapPeriode"><option value="">— pilih periode —</option></select>
+        <button class="sec mini" id="btnExport">⬇ Ekspor CSV</button>
+      </div>
+      <div class="stats" id="lapStats"></div>
+      <div class="tblwrap">
+        <table><thead><tr><th>NIK</th><th>Nama</th><th>PT</th><th>Status Unduh</th><th>Terakhir Diunduh</th></tr></thead>
+        <tbody id="lapBody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- TAB FOTO & BPJS -->
+    <div class="card tabpane hidden" id="pane-foto">
+      <div class="toolbar">
+        <input type="text" id="cariFoto" placeholder="Cari nama / NIK karyawan…">
+        <button class="mini" id="btnCariFoto">Cari</button>
+      </div>
+      <div id="fotoResult"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Dialog edit karyawan -->
+<dialog id="dlgEdit">
+  <div class="dlg-h">Edit Data Karyawan</div>
+  <div class="dlg-b">
+    <div id="editNama" style="font-weight:700;color:#1e3a5f"></div>
+    <div id="editNik" style="font-size:.75rem;color:#889;margin-bottom:8px"></div>
+    <label>No. WhatsApp</label>
+    <input type="text" id="editTelp" style="max-width:100%" placeholder="08xxxxxxxxxx">
+    <label>Email</label>
+    <input type="email" id="editEmail" style="max-width:100%" placeholder="nama@email.com">
+    <div id="editMsg" class="err"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="sec" id="editBatal">Batal</button>
+      <button id="editSimpan">Simpan</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+const SB_URL='https://fergturaafsmuqjuamsq.supabase.co';
+const SB_KEY='sb_publishable_Nlu44F12CAowIpV8qRurew_SMSuMWap';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const $=id=>document.getElementById(id);
+const BLN={'01':'Januari','02':'Februari','03':'Maret','04':'April','05':'Mei','06':'Juni','07':'Juli','08':'Agustus','09':'September','10':'Oktober','11':'November','12':'Desember'};
+let KARYAWAN=[]; // cache data karyawan
+
+/* ---------- LOGIN ---------- */
+$('btnOtp').onclick=async()=>{
+  $('btnOtp').disabled=true;$('msg1').textContent='';
+  try{
+    const r=await fetch(SB_URL+'/functions/v1/auth-otp',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'request',nik:$('nik').value.trim(),email:$('email').value.trim()})});
+    const d=await r.json();
+    if(!d.ok){$('msg1').textContent=d.error||'Gagal';}
+    else{$('stepNik').classList.add('hidden');$('stepOtp').classList.remove('hidden');}
+  }catch(e){$('msg1').textContent='Tidak dapat terhubung ke server';}
+  $('btnOtp').disabled=false;
+};
+$('btnVer').onclick=async()=>{
+  $('btnVer').disabled=true;$('msg2').textContent='';
+  try{
+    const r=await fetch(SB_URL+'/functions/v1/auth-otp',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'verify',nik:$('nik').value.trim(),code:$('otp').value.trim(),device_id:'admin-web',device_name:'Admin Web'})});
+    const d=await r.json();
+    if(!d.ok){$('msg2').textContent=d.error||'Gagal';$('btnVer').disabled=false;return;}
+    await sb.auth.setSession({access_token:d.access_token,refresh_token:d.refresh_token});
+    $('cardLogin').classList.add('hidden');$('dash').classList.remove('hidden');$('who').classList.remove('hidden');
+    $('whoName').textContent='👤 '+(d.nama||'Admin');
+    initDashboard();
+  }catch(e){$('msg2').textContent='Tidak dapat terhubung ke server';$('btnVer').disabled=false;}
+};
+$('btnLogout').onclick=async()=>{await sb.auth.signOut();location.reload();};
+
+/* ---------- TABS ---------- */
+document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabbtn').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  document.querySelectorAll('.tabpane').forEach(p=>p.classList.add('hidden'));
+  $('pane-'+b.dataset.t).classList.remove('hidden');
+});
+
+async function initDashboard(){
+  await muatKaryawan();
+  renderDataStats(); renderDataTable(); isiPeriode();
+}
+
+/* ---------- DATA KARYAWAN ---------- */
+async function muatKaryawan(){
+  let all=[],from=0;
+  while(true){
+    const {data,error}=await sb.from('karyawan')
+      .select('id,no_karyawan,nama,perusahaan,departemen,departemen_induk,telp,email,status')
+      .eq('status','Aktif').order('nama').range(from,from+999);
+    if(error){console.error(error);break;}
+    all=all.concat(data); if(data.length<1000)break; from+=1000;
+  }
+  KARYAWAN=all;
+}
+function adaTelp(k){return k.telp && k.telp.trim();}
+function adaEmail(k){return k.email && k.email.trim();}
+function renderDataStats(){
+  const t=KARYAWAN.length, hp=KARYAWAN.filter(adaTelp).length, em=KARYAWAN.filter(adaEmail).length;
+  const siap=KARYAWAN.filter(k=>adaTelp(k)&&adaEmail(k)).length;
+  $('dataStats').innerHTML=
+    `<div class="sc"><div class="n">${t}</div><div class="l">Karyawan Aktif</div></div>
+     <div class="sc g"><div class="n">${hp}</div><div class="l">Punya No. HP</div></div>
+     <div class="sc o"><div class="n">${em}</div><div class="l">Punya Email</div></div>
+     <div class="sc ${siap===t?'g':'r'}"><div class="n">${siap}</div><div class="l">Siap Login (HP+Email)</div></div>`;
+}
+function renderDataTable(){
+  const q=$('cari').value.toLowerCase().trim(), pt=$('fPT').value, lk=$('fLengkap').value;
+  let rows=KARYAWAN.filter(k=>{
+    if(pt&&k.perusahaan!==pt)return false;
+    if(q&&!(k.nama.toLowerCase().includes(q)||(k.no_karyawan||'').includes(q)))return false;
+    const lengkap=adaTelp(k)&&adaEmail(k);
+    if(lk==='belum'&&lengkap)return false;
+    if(lk==='lengkap'&&!lengkap)return false;
+    return true;
+  });
+  $('dataInfo').textContent=`Menampilkan ${rows.length} dari ${KARYAWAN.length} karyawan aktif.`;
+  $('dataBody').innerHTML=rows.slice(0,500).map(k=>`
+    <tr>
+      <td>${k.no_karyawan||''}</td>
+      <td>${k.nama}</td>
+      <td>${k.perusahaan}</td>
+      <td>${cap(k.departemen)}</td>
+      <td>${adaTelp(k)?k.telp:'<span class="pill n">kosong</span>'}</td>
+      <td>${adaEmail(k)?k.email:'<span class="pill n">kosong</span>'}</td>
+      <td><button class="sec mini" onclick="editKaryawan('${k.id}')">Edit</button></td>
+    </tr>`).join('')
+    + (rows.length>500?`<tr><td colspan="7" style="text-align:center;color:#889">…${rows.length-500} baris lagi, persempit pencarian</td></tr>`:'');
+}
+$('cari').oninput=renderDataTable; $('fPT').onchange=renderDataTable; $('fLengkap').onchange=renderDataTable;
+$('btnReloadData').onclick=async()=>{await muatKaryawan();renderDataStats();renderDataTable();};
+
+window.editKaryawan=(id)=>{
+  const k=KARYAWAN.find(x=>x.id===id); if(!k)return;
+  $('editNama').textContent=k.nama; $('editNik').textContent='NIK '+k.no_karyawan;
+  $('editTelp').value=k.telp||''; $('editEmail').value=k.email||''; $('editMsg').textContent='';
+  $('dlgEdit').dataset.id=id; $('dlgEdit').showModal();
+};
+$('editBatal').onclick=()=>$('dlgEdit').close();
+$('editSimpan').onclick=async()=>{
+  const id=$('dlgEdit').dataset.id;
+  const telp=$('editTelp').value.trim(), email=$('editEmail').value.trim();
+  $('editMsg').textContent='';
+  const {error}=await sb.from('karyawan').update({telp,email}).eq('id',id);
+  if(error){$('editMsg').textContent='Gagal menyimpan: '+error.message;return;}
+  const k=KARYAWAN.find(x=>x.id===id); k.telp=telp; k.email=email;
+  $('dlgEdit').close(); renderDataStats(); renderDataTable();
+};
+
+/* ---------- LAPORAN DOWNLOAD ---------- */
+async function isiPeriode(){
+  const {data}=await sb.from('slip_gaji').select('periode');
+  const set=[...new Set((data||[]).map(s=>s.periode))].sort().reverse();
+  $('lapPeriode').innerHTML='<option value="">— pilih periode —</option>'+
+    set.map(p=>{const[y,m]=p.split('-');return `<option value="${p}">${BLN[m]} ${y}</option>`}).join('');
+}
+$('lapPeriode').onchange=async()=>{
+  const per=$('lapPeriode').value; if(!per){$('lapBody').innerHTML='';$('lapStats').innerHTML='';return;}
+  const {data:slips}=await sb.from('slip_gaji').select('id,karyawan_id,periode').eq('periode',per);
+  const ids=slips.map(s=>s.id);
+  const {data:dls}=await sb.from('riwayat_download').select('slip_id,downloaded_at').in('slip_id',ids.length?ids:[-1]);
+  const rows=slips.map(s=>{
+    const k=KARYAWAN.find(x=>x.id===s.karyawan_id)||{nama:'(non-aktif)',no_karyawan:s.karyawan_id,perusahaan:''};
+    const mine=dls.filter(d=>d.slip_id===s.id).map(d=>d.downloaded_at).sort().reverse();
+    return {nik:k.no_karyawan,nama:k.nama,pt:k.perusahaan,last:mine[0]||null};
+  }).sort((a,b)=>a.nama.localeCompare(b.nama));
+  const sudah=rows.filter(r=>r.last).length;
+  $('lapStats').innerHTML=
+    `<div class="sc"><div class="n">${rows.length}</div><div class="l">Total Slip</div></div>
+     <div class="sc g"><div class="n">${sudah}</div><div class="l">Sudah Diunduh</div></div>
+     <div class="sc r"><div class="n">${rows.length-sudah}</div><div class="l">Belum Diunduh</div></div>
+     <div class="sc o"><div class="n">${rows.length?Math.round(sudah/rows.length*100):0}%</div><div class="l">Tingkat Unduh</div></div>`;
+  window.__lapRows=rows;
+  $('lapBody').innerHTML=rows.map(r=>`
+    <tr><td>${r.nik}</td><td>${r.nama}</td><td>${r.pt}</td>
+    <td>${r.last?'<span class="pill a">Sudah</span>':'<span class="pill n">Belum</span>'}</td>
+    <td>${r.last?fmt(r.last):'—'}</td></tr>`).join('');
+};
+$('btnExport').onclick=()=>{
+  const rows=window.__lapRows||[]; if(!rows.length){alert('Pilih periode dulu');return;}
+  const per=$('lapPeriode').selectedOptions[0].textContent;
+  let csv='NIK,Nama,PT,Status Unduh,Terakhir Diunduh\n';
+  rows.forEach(r=>{csv+=`"${r.nik}","${r.nama}","${r.pt}","${r.last?'Sudah':'Belum'}","${r.last?fmt(r.last):''}"\n`;});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`Laporan_Download_${per.replace(' ','_')}.csv`; a.click();
+};
+
+/* ---------- FOTO & BPJS ---------- */
+$('btnCariFoto').onclick=cariFoto; $('cariFoto').onkeydown=e=>{if(e.key==='Enter')cariFoto();};
+async function cariFoto(){
+  const q=$('cariFoto').value.toLowerCase().trim(); if(!q){$('fotoResult').innerHTML='';return;}
+  const list=KARYAWAN.filter(k=>k.nama.toLowerCase().includes(q)||(k.no_karyawan||'').includes(q)).slice(0,8);
+  if(!list.length){$('fotoResult').innerHTML='<div class="hint">Tidak ditemukan.</div>';return;}
+  $('fotoResult').innerHTML='<div class="hint">Memuat…</div>';
+  let html='';
+  for(const k of list){
+    let fotoUrl=null;
+    try{const{data}=await sb.storage.from('foto-karyawan').createSignedUrl(k.no_karyawan+'.jpg',600);fotoUrl=data?.signedUrl;}catch(e){}
+    const {data:kel}=await sb.from('keluarga_bpjs').select('*').eq('karyawan_id',k.id).order('id');
+    html+=`<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:18px">
+      ${fotoUrl?`<img src="${fotoUrl}" class="foto">`:`<div class="foto" style="display:flex;align-items:center;justify-content:center;color:#aab;font-size:.7rem;text-align:center">Belum ada foto</div>`}
+      <div style="flex:1">
+        <div style="font-weight:700;color:#1e3a5f;font-size:1rem">${k.nama}</div>
+        <div style="font-size:.76rem;color:#889;margin-bottom:8px">NIK ${k.no_karyawan} · ${k.perusahaan} · Bagian ${cap(k.departemen)} · Dept ${k.departemen_induk||'-'}</div>
+        <div style="font-size:.72rem;font-weight:700;color:#456;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Keluarga Tercover BPJS</div>
+        ${(kel&&kel.length)?`<table style="font-size:.78rem"><tbody>${kel.map(f=>`<tr><td style="padding:3px 8px 3px 0;color:#889">${cap(f.hubungan)}</td><td style="padding:3px 8px;font-weight:600">${f.nama}</td><td style="padding:3px 8px;color:#667">${f.no_jkn||'-'}</td></tr>`).join('')}</tbody></table>`:'<div class="hint">Belum ada data keluarga BPJS.</div>'}
+      </div></div></div>`;
+  }
+  $('fotoResult').innerHTML=html;
+}
+
+/* ---------- UPLOAD SLIP ---------- */
+const drop=$('drop');
+drop.onclick=()=>$('pick').click();
+drop.ondragover=e=>{e.preventDefault();drop.classList.add('over');};
+drop.ondragleave=()=>drop.classList.remove('over');
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove('over');handleFiles([...e.dataTransfer.files]);};
+$('pick').onchange=e=>handleFiles([...e.target.files]);
+function upRow(cells,cls){const tr=document.createElement('tr');tr.innerHTML=cells.map((c,i)=>`<td${i===4?' class="'+cls+'"':''}>${c}</td>`).join('');$('upBody').appendChild(tr);return tr;}
+async function handleFiles(files){
+  files=files.filter(f=>f.name.toLowerCase().endsWith('.pdf')); if(!files.length)return;
+  $('upWrap').classList.remove('hidden');
+  for(const f of files){
+    const m=f.name.match(/^(\d{6})_([^_]+)_(.*)\.pdf$/i);
+    if(!m){upRow([f.name,'-','-','-','Nama file tidak sesuai format (ThnBln_NIK_Nama)'],'s-err');continue;}
+    const yyyymm=m[1],nik=m[2],yyyy=yyyymm.slice(0,4),mm=yyyymm.slice(4,6);
+    if(!BLN[mm]){upRow([f.name,nik,yyyymm,'-','Bulan tidak valid (format ThnBln, mis. 202605)'],'s-err');continue;}
+    const tr=upRow([f.name,nik,BLN[mm]+' '+yyyy,'…','Memproses…'],'s-proc');
+    try{
+      const {data:k}=await sb.from('karyawan').select('id,nama').eq('no_karyawan',nik).eq('status','Aktif').maybeSingle();
+      if(!k)throw 'NIK tidak ditemukan / tidak aktif';
+      tr.children[3].textContent=k.nama;
+      const path=yyyymm+'/'+nik+'.pdf';
+      const {error:e2}=await sb.storage.from('slip-gaji').upload(path,f,{upsert:true,contentType:'application/pdf'});
+      if(e2)throw e2.message;
+      const periode=yyyy+'-'+mm+'-01';
+      const exp=new Date(Date.UTC(+yyyy,+mm-1+4,1));exp.setUTCDate(0);
+      const {error:e3}=await sb.from('slip_gaji').upsert({karyawan_id:k.id,periode,file_path:path,file_size_kb:Math.round(f.size/1024),expired_at:exp.toISOString().slice(0,10)},{onConflict:'karyawan_id,periode'});
+      if(e3)throw e3.message;
+      tr.children[4].textContent='Berhasil ✓';tr.children[4].className='s-ok';
+    }catch(err){tr.children[4].textContent=String(err);tr.children[4].className='s-err';}
+  }
+  isiPeriode();
+}
+
+/* ---------- util ---------- */
+function cap(s){return(s||'-').toLowerCase().split(' ').map(w=>w?w[0].toUpperCase()+w.slice(1):w).join(' ');}
+function fmt(iso){const d=new Date(iso);return d.toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}
+</script>
+</body>
+</html>
