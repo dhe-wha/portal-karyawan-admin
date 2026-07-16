@@ -378,4 +378,15 @@ async function handleFiles(files){
       const exp=new Date(Date.UTC(+yyyy,+mm-1+4,1));exp.setUTCDate(0);
       const {error:e3}=await sb.from('slip_gaji').upsert({karyawan_id:k.id,periode,file_path:path,file_size_kb:Math.round(f.size/1024),expired_at:exp.toISOString().slice(0,10)},{onConflict:'karyawan_id,periode'});
       if(e3)throw e3.message;
-      tr.
+      tr.children[4].textContent='Berhasil ✓';tr.children[4].className='s-ok';
+    }catch(err){tr.children[4].textContent=String(err);tr.children[4].className='s-err';}
+  }
+  isiPeriode();
+}
+
+/* ---------- util ---------- */
+function cap(s){return(s||'-').toLowerCase().split(' ').map(w=>w?w[0].toUpperCase()+w.slice(1):w).join(' ');}
+function fmt(iso){const d=new Date(iso);return d.toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}
+</script>
+</body>
+</html>
