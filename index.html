@@ -127,6 +127,7 @@ dialog::backdrop{background:rgba(10,16,30,.5)}
         <label style="margin:0">Periode slip:</label>
         <select id="lapPeriode"><option value="">— pilih periode —</option></select>
         <button class="sec mini" id="btnExport">⬇ Ekspor CSV</button>
+        <input type="text" id="cariLap" placeholder="Cari nama / NIK…" style="max-width:220px;margin:0">
       </div>
       <div class="stats" id="lapStats"></div>
       <div class="tblwrap">
@@ -302,11 +303,19 @@ $('lapPeriode').onchange=async()=>{
      <div class="sc r"><div class="n">${rows.length-sudah}</div><div class="l">Belum Diunduh</div></div>
      <div class="sc o"><div class="n">${rows.length?Math.round(sudah/rows.length*100):0}%</div><div class="l">Tingkat Unduh</div></div>`;
   window.__lapRows=rows;
-  $('lapBody').innerHTML=rows.map(r=>`
+  renderLap();
+};
+function renderLap(){
+  const rows=window.__lapRows||[];
+  const q=($('cariLap').value||'').toLowerCase().trim();
+  const f=q?rows.filter(r=>(r.nama||'').toLowerCase().includes(q)||(r.nik||'').toLowerCase().includes(q)):rows;
+  $('lapBody').innerHTML=f.map(r=>`
     <tr><td>${r.nik}</td><td>${r.nama}</td><td>${r.pt}</td>
     <td>${r.last?'<span class="pill a">Sudah</span>':'<span class="pill n">Belum</span>'}</td>
-    <td>${r.last?fmt(r.last):'—'}</td></tr>`).join('');
-};
+    <td>${r.last?fmt(r.last):'—'}</td></tr>`).join('')
+    + (q&&!f.length?'<tr><td colspan="5" style="text-align:center;color:#889;padding:14px">Tidak ada yang cocok</td></tr>':'');
+}
+$('cariLap').oninput=renderLap;
 $('btnExport').onclick=()=>{
   const rows=window.__lapRows||[]; if(!rows.length){alert('Pilih periode dulu');return;}
   const per=$('lapPeriode').selectedOptions[0].textContent;
@@ -369,15 +378,4 @@ async function handleFiles(files){
       const exp=new Date(Date.UTC(+yyyy,+mm-1+4,1));exp.setUTCDate(0);
       const {error:e3}=await sb.from('slip_gaji').upsert({karyawan_id:k.id,periode,file_path:path,file_size_kb:Math.round(f.size/1024),expired_at:exp.toISOString().slice(0,10)},{onConflict:'karyawan_id,periode'});
       if(e3)throw e3.message;
-      tr.children[4].textContent='Berhasil ✓';tr.children[4].className='s-ok';
-    }catch(err){tr.children[4].textContent=String(err);tr.children[4].className='s-err';}
-  }
-  isiPeriode();
-}
-
-/* ---------- util ---------- */
-function cap(s){return(s||'-').toLowerCase().split(' ').map(w=>w?w[0].toUpperCase()+w.slice(1):w).join(' ');}
-function fmt(iso){const d=new Date(iso);return d.toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}
-</script>
-</body>
-</html>
+      tr.
