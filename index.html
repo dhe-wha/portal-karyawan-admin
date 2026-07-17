@@ -221,12 +221,27 @@ $('btnVer').onclick=async()=>{
     const d=await r.json();
     if(!d.ok){$('msg2').textContent=d.error||'Gagal';$('btnVer').disabled=false;return;}
     await sb.auth.setSession({access_token:d.access_token,refresh_token:d.refresh_token});
-    $('cardLogin').classList.add('hidden');$('dash').classList.remove('hidden');$('who').classList.remove('hidden');
-    $('whoName').textContent='👤 '+(d.nama||'Admin');
-    initDashboard();
+    masukDashboard(d.nama);
   }catch(e){$('msg2').textContent='Tidak dapat terhubung ke server';$('btnVer').disabled=false;}
 };
+function masukDashboard(nama){
+  $('cardLogin').classList.add('hidden');$('dash').classList.remove('hidden');$('who').classList.remove('hidden');
+  $('whoName').textContent='👤 '+(nama||'Admin');
+  initDashboard();
+}
 $('btnLogout').onclick=async()=>{await sb.auth.signOut();location.reload();};
+
+/* ---------- PULIHKAN SESI saat halaman dibuka/refresh (biar tidak logout) ---------- */
+(async()=>{
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session)return;
+    const {data:rows}=await sb.from('karyawan').select('nama,is_admin').eq('auth_user_id',session.user.id).limit(1);
+    const me=rows&&rows[0];
+    if(!me||!me.is_admin){await sb.auth.signOut();return;} // bukan admin → login manual
+    masukDashboard(me.nama);
+  }catch(e){/* biarkan tampilan login manual */}
+})();
 
 /* ---------- TABS ---------- */
 document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>{
