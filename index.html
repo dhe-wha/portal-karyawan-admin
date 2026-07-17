@@ -86,14 +86,37 @@ dialog::backdrop{background:rgba(10,16,30,.5)}
   <!-- DASHBOARD -->
   <div id="dash" class="hidden">
     <div class="tabs">
-      <button class="tabbtn on" data-t="upload">📤 Upload Slip</button>
+      <button class="tabbtn on" data-t="dash">🏠 Dashboard</button>
+      <button class="tabbtn" data-t="upload">📤 Upload Slip</button>
       <button class="tabbtn" data-t="data">👥 Data Karyawan</button>
       <button class="tabbtn" data-t="lapor">📊 Laporan Download</button>
       <button class="tabbtn" data-t="foto">🖼️ Foto &amp; BPJS</button>
     </div>
 
+    <!-- TAB DASHBOARD -->
+    <div class="tabpane" id="pane-dash">
+      <div class="toolbar" style="justify-content:flex-end">
+        <button class="sec mini" id="btnReloadDash">↻ Muat ulang</button>
+      </div>
+      <div class="stats" id="dashStats"></div>
+      <div class="card">
+        <h3 style="font-size:.95rem;color:#1e3a5f;margin-bottom:10px">🧾 Slip Terakhir Diunduh</h3>
+        <div class="tblwrap" style="max-height:38vh">
+          <table><thead><tr><th>Waktu</th><th>Nama</th><th>NIK</th><th>Periode</th></tr></thead>
+          <tbody id="dashDlBody"></tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:.95rem;color:#1e3a5f;margin-bottom:10px">🔑 Aktivitas Login Terakhir</h3>
+        <div class="tblwrap" style="max-height:38vh">
+          <table><thead><tr><th>Waktu</th><th>Nama</th><th>NIK</th><th>Perangkat</th></tr></thead>
+          <tbody id="dashLgBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
     <!-- TAB UPLOAD -->
-    <div class="card tabpane" id="pane-upload">
+    <div class="card tabpane hidden" id="pane-upload">
       <h3 style="font-size:.98rem;color:#1e3a5f;margin-bottom:12px">Upload Slip Gaji (PDF)</h3>
       <div id="drop">Tarik &amp; letakkan PDF di sini, atau <b>klik untuk pilih file</b><br>
         <span style="font-size:.74rem">Format: <b>ThnBln_NIK_Nama.pdf</b> — contoh: 202605_10B0000016_HARIYANTO_PADUENGO.pdf</span></div>
@@ -216,7 +239,49 @@ document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>{
 async function initDashboard(){
   await muatKaryawan();
   renderDataStats(); renderDataTable(); isiPeriode();
+  renderDashboard();
 }
+
+/* ---------- DASHBOARD (ringkasan + aktivitas) ---------- */
+async function renderDashboard(){
+  $('dashDlBody').innerHTML='<tr><td colspan="4" style="text-align:center;color:#889;padding:12px">Memuat…</td></tr>';
+  $('dashLgBody').innerHTML='<tr><td colspan="4" style="text-align:center;color:#889;padding:12px">Memuat…</td></tr>';
+  // Unduhan terbaru
+  const {data:dls}=await sb.from('riwayat_download')
+    .select('slip_id,karyawan_id,downloaded_at').order('downloaded_at',{ascending:false}).limit(60);
+  const dl=dls||[];
+  const kIds=[...new Set(dl.map(d=>d.karyawan_id).filter(Boolean))];
+  const sIds=[...new Set(dl.map(d=>d.slip_id).filter(Boolean))];
+  const kmap={},smap={};
+  if(kIds.length){const {data}=await sb.from('karyawan').select('id,no_karyawan,nama').in('id',kIds);(data||[]).forEach(k=>kmap[k.id]=k);}
+  if(sIds.length){const {data}=await sb.from('slip_gaji').select('id,periode').in('id',sIds);(data||[]).forEach(s=>smap[s.id]=s.periode);}
+  // Login terbaru
+  const {data:lgs}=await sb.from('log_login')
+    .select('nama,no_karyawan,device_name,device_id,waktu').order('waktu',{ascending:false}).limit(60);
+  const lg=lgs||[];
+  // Hitungan
+  const t0=new Date();t0.setHours(0,0,0,0);const isoHari=t0.toISOString();
+  const t7=new Date(Date.now()-7*864e5).toISOString();
+  const [dlHari,lgHari,dl7]=await Promise.all([
+    sb.from('riwayat_download').select('*',{count:'exact',head:true}).gte('downloaded_at',isoHari),
+    sb.from('log_login').select('*',{count:'exact',head:true}).gte('waktu',isoHari),
+    sb.from('riwayat_download').select('*',{count:'exact',head:true}).gte('downloaded_at',t7)
+  ]);
+  $('dashStats').innerHTML=
+    `<div class="sc"><div class="n">${KARYAWAN.length}</div><div class="l">Karyawan Aktif</div></div>
+     <div class="sc g"><div class="n">${lgHari.count||0}</div><div class="l">Login Hari Ini</div></div>
+     <div class="sc o"><div class="n">${dlHari.count||0}</div><div class="l">Unduh Hari Ini</div></div>
+     <div class="sc"><div class="n">${dl7.count||0}</div><div class="l">Unduh 7 Hari</div></div>`;
+  $('dashDlBody').innerHTML=dl.length?dl.map(d=>{
+    const k=kmap[d.karyawan_id]||{};
+    return `<tr><td>${fmt(d.downloaded_at)}</td><td>${k.nama||'(non-aktif)'}</td><td>${k.no_karyawan||d.karyawan_id||''}</td><td>${perLabel(smap[d.slip_id])}</td></tr>`;
+  }).join(''):'<tr><td colspan="4" style="text-align:center;color:#889;padding:14px">Belum ada unduhan.</td></tr>';
+  $('dashLgBody').innerHTML=lg.length?lg.map(l=>
+    `<tr><td>${fmt(l.waktu)}</td><td>${l.nama||''}</td><td>${l.no_karyawan||''}</td><td>${l.device_name||l.device_id||'-'}</td></tr>`
+  ).join(''):'<tr><td colspan="4" style="text-align:center;color:#889;padding:14px">Belum ada aktivitas login.</td></tr>';
+}
+$('btnReloadDash').onclick=renderDashboard;
+function perLabel(p){if(!p)return '-';const[y,m]=String(p).split('-');return (BLN[m]||m)+' '+y;}
 
 /* ---------- DATA KARYAWAN ---------- */
 async function muatKaryawan(){
