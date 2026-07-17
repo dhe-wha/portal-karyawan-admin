@@ -76,7 +76,7 @@ dialog::backdrop{background:rgba(10,16,30,.5)}
       <div id="msg1" class="err"></div>
     </div>
     <div id="stepOtp" class="hidden">
-      <label>Kode OTP (cek WhatsApp)</label>
+      <label id="otpLabel">Kode OTP (cek WhatsApp)</label>
       <input type="text" id="otp" maxlength="6" placeholder="6 digit">
       <br><button id="btnVer" style="margin-top:14px">Verifikasi &amp; Masuk</button>
       <div id="msg2" class="err"></div>
@@ -181,7 +181,12 @@ $('btnOtp').onclick=async()=>{
       body:JSON.stringify({action:'request',nik:$('nik').value.trim(),email:$('email').value.trim()})});
     const d=await r.json();
     if(!d.ok){$('msg1').textContent=d.error||'Gagal';}
-    else{$('stepNik').classList.add('hidden');$('stepOtp').classList.remove('hidden');}
+    else{
+      $('otpLabel').textContent = d.channel==='email'
+        ? ('Kode OTP dikirim ke EMAIL'+(d.masked?' ('+d.masked+')':'')+' — cek inbox/spam')
+        : ('Kode OTP dikirim ke WhatsApp'+(d.masked?' ('+d.masked+')':''));
+      $('stepNik').classList.add('hidden');$('stepOtp').classList.remove('hidden');
+    }
   }catch(e){$('msg1').textContent='Tidak dapat terhubung ke server';}
   $('btnOtp').disabled=false;
 };
