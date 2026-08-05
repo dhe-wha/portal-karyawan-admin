@@ -91,6 +91,7 @@ dialog::backdrop{background:rgba(10,16,30,.5)}
       <button class="tabbtn" data-t="data">👥 Data Karyawan</button>
       <button class="tabbtn" data-t="lapor">📊 Laporan Download</button>
       <button class="tabbtn" data-t="foto">🖼️ Foto &amp; BPJS</button>
+      <button class="tabbtn" data-t="pengumuman">🔔 Pengumuman</button>
     </div>
 
     <!-- TAB DASHBOARD -->
@@ -156,6 +157,24 @@ dialog::backdrop{background:rgba(10,16,30,.5)}
       <div class="tblwrap">
         <table><thead><tr><th>NIK</th><th>Nama</th><th>PT</th><th>Status Unduh</th><th>Terakhir Diunduh</th></tr></thead>
         <tbody id="lapBody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- TAB PENGUMUMAN -->
+    <div class="card tabpane hidden" id="pane-pengumuman">
+      <h3 style="font-size:.98rem;color:#1e3a5f;margin-bottom:6px">🔔 Kirim Pengumuman (Push Notification)</h3>
+      <div class="hint" style="margin-top:0">Notifikasi akan muncul sebagai popup di HP semua karyawan yang sudah memasang aplikasi Bioku.</div>
+      <label>Judul</label>
+      <input type="text" id="pengJudul" maxlength="60" placeholder="mis. Libur Nasional" style="max-width:100%">
+      <label>Pesan</label>
+      <textarea id="pengPesan" maxlength="240" placeholder="Isi pengumuman…" style="width:100%;border:1.5px solid #d7dee7;border-radius:9px;padding:10px 12px;font-size:.88rem;min-height:90px;resize:vertical"></textarea>
+      <div style="margin-top:14px;display:flex;gap:10px;align-items:center">
+        <button id="btnKirimPeng">Kirim ke Semua Karyawan</button>
+        <span id="pengMsg" style="font-size:.82rem"></span>
+      </div>
+      <div class="hint">Riwayat pengumuman:</div>
+      <div class="tblwrap" style="max-height:40vh">
+        <table><thead><tr><th>Waktu</th><th>Judul</th><th>Pesan</th></tr></thead><tbody id="pengBody"></tbody></table>
       </div>
     </div>
 
@@ -252,7 +271,24 @@ document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>{
 async function initDashboard(){
   await muatKaryawan();
   renderDataStats(); renderDataTable(); isiPeriode();
-  renderDashboard();
+  renderDashboard(); loadPeng();
+}
+
+/* ---------- PENGUMUMAN (push) ---------- */
+$('btnKirimPeng').onclick=async()=>{
+  const judul=$('pengJudul').value.trim(), pesan=$('pengPesan').value.trim();
+  const msg=$('pengMsg');
+  if(!judul||!pesan){msg.textContent='Judul & pesan wajib diisi';msg.style.color='#dc2626';return;}
+  if(!confirm('Kirim pengumuman ini sebagai notifikasi ke SEMUA karyawan?'))return;
+  $('btnKirimPeng').disabled=true;msg.textContent='Mengirim…';msg.style.color='#889';
+  const {error}=await sb.from('pengumuman').insert({judul,pesan,dibuat_oleh:($('whoName').textContent||'Admin')});
+  if(error){msg.textContent='Gagal: '+error.message;msg.style.color='#dc2626';}
+  else{msg.textContent='Terkirim ✓ (notifikasi sedang dikirim)';msg.style.color='#059669';$('pengJudul').value='';$('pengPesan').value='';loadPeng();}
+  $('btnKirimPeng').disabled=false;
+};
+async function loadPeng(){
+  const {data}=await sb.from('pengumuman').select('judul,pesan,created_at').order('created_at',{ascending:false}).limit(30);
+  $('pengBody').innerHTML=(data&&data.length)?data.map(p=>`<tr><td>${fmt(p.created_at)}</td><td>${p.judul}</td><td>${p.pesan}</td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;color:#889;padding:12px">Belum ada pengumuman.</td></tr>';
 }
 
 /* ---------- DASHBOARD (ringkasan + aktivitas) ---------- */
