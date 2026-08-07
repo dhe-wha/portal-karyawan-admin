@@ -401,8 +401,8 @@ $('editSimpan').onclick=async()=>{
 
 /* ---------- LAPORAN DOWNLOAD ---------- */
 async function isiPeriode(){
-  const {data}=await sb.from('slip_gaji').select('periode');
-  const set=[...new Set((data||[]).map(s=>s.periode))].sort().reverse();
+  const {data}=await sb.rpc('list_slip_periode');
+  const set=(data||[]).map(d=>String(d).slice(0,10));
   $('lapPeriode').innerHTML='<option value="">— pilih periode —</option>'+
     set.map(p=>{const[y,m]=p.split('-');return `<option value="${p}">${BLN[m]} ${y}</option>`}).join('');
 }
