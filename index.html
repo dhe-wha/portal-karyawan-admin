@@ -406,16 +406,23 @@ async function isiPeriode(){
   $('lapPeriode').innerHTML='<option value="">— pilih periode —</option>'+
     set.map(p=>{const[y,m]=p.split('-');return `<option value="${p}">${BLN[m]} ${y}</option>`}).join('');
 }
+/* panggil RPC yang mengembalikan banyak baris, aman dari batas 1000 (pagination) */
+async function fetchAllRpc(name,args){
+  let all=[],from=0;
+  while(true){
+    const {data,error}=await sb.rpc(name,args).range(from,from+999);
+    if(error){console.error(error);break;}
+    all=all.concat(data||[]);
+    if(!data||data.length<1000)break; from+=1000;
+  }
+  return all;
+}
 $('lapPeriode').onchange=async()=>{
   const per=$('lapPeriode').value; if(!per){$('lapBody').innerHTML='';$('lapStats').innerHTML='';return;}
-  const {data:slips}=await sb.from('slip_gaji').select('id,karyawan_id,periode').eq('periode',per);
-  const ids=slips.map(s=>s.id);
-  const {data:dls}=await sb.from('riwayat_download').select('slip_id,downloaded_at').in('slip_id',ids.length?ids:[-1]);
-  const rows=slips.map(s=>{
-    const k=KARYAWAN.find(x=>x.id===s.karyawan_id)||{nama:'(non-aktif)',no_karyawan:s.karyawan_id,perusahaan:''};
-    const mine=dls.filter(d=>d.slip_id===s.id).map(d=>d.downloaded_at).sort().reverse();
-    return {nik:k.no_karyawan,nama:k.nama,pt:k.perusahaan,last:mine[0]||null};
-  }).sort((a,b)=>a.nama.localeCompare(b.nama));
+  $('lapBody').innerHTML='<tr><td colspan="5" style="text-align:center;color:#889;padding:14px">Memuat…</td></tr>';$('lapStats').innerHTML='';
+  const data=await fetchAllRpc('laporan_download',{p_periode:per});
+  const rows=data.map(r=>({nik:r.nik||'',nama:r.nama||'(non-aktif)',pt:r.pt||'',last:r.last_download||null}))
+    .sort((a,b)=>a.nama.localeCompare(b.nama));
   const sudah=rows.filter(r=>r.last).length;
   $('lapStats').innerHTML=
     `<div class="sc"><div class="n">${rows.length}</div><div class="l">Total Slip</div></div>
