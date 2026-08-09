@@ -168,13 +168,17 @@ dialog::backdrop{background:rgba(10,16,30,.5)}
       <input type="text" id="pengJudul" maxlength="60" placeholder="mis. Libur Nasional" style="max-width:100%">
       <label>Pesan</label>
       <textarea id="pengPesan" maxlength="240" placeholder="Isi pengumuman…" style="width:100%;border:1.5px solid #d7dee7;border-radius:9px;padding:10px 12px;font-size:.88rem;min-height:90px;resize:vertical"></textarea>
+      <label>Gambar (opsional)</label>
+      <input type="file" id="pengGambar" accept="image/*" style="max-width:100%">
+      <div style="margin-top:8px"><img id="pengPreview" style="display:none;max-width:220px;max-height:160px;border-radius:10px;border:1px solid #e5e9f0"></div>
+      <div class="hint" style="margin-top:6px">Gambar maks. 5 MB (JPG/PNG). Pengumuman &amp; gambar tersimpan 30 hari, lalu terhapus otomatis untuk hemat kapasitas.</div>
       <div style="margin-top:14px;display:flex;gap:10px;align-items:center">
         <button id="btnKirimPeng">Kirim ke Semua Karyawan</button>
         <span id="pengMsg" style="font-size:.82rem"></span>
       </div>
       <div class="hint">Riwayat pengumuman:</div>
       <div class="tblwrap" style="max-height:40vh">
-        <table><thead><tr><th>Waktu</th><th>Judul</th><th>Pesan</th></tr></thead><tbody id="pengBody"></tbody></table>
+        <table><thead><tr><th>Waktu</th><th>Judul</th><th>Pesan</th><th>Gambar</th></tr></thead><tbody id="pengBody"></tbody></table>
       </div>
     </div>
 
@@ -275,20 +279,36 @@ async function initDashboard(){
 }
 
 /* ---------- PENGUMUMAN (push) ---------- */
+$('pengGambar').onchange=()=>{
+  const f=$('pengGambar').files[0], img=$('pengPreview');
+  if(f){img.src=URL.createObjectURL(f);img.style.display='block';}else{img.style.display='none';}
+};
 $('btnKirimPeng').onclick=async()=>{
   const judul=$('pengJudul').value.trim(), pesan=$('pengPesan').value.trim();
   const msg=$('pengMsg');
   if(!judul||!pesan){msg.textContent='Judul & pesan wajib diisi';msg.style.color='#dc2626';return;}
+  const file=$('pengGambar').files[0];
+  if(file && file.size>5*1024*1024){msg.textContent='Gambar terlalu besar (maks 5 MB)';msg.style.color='#dc2626';return;}
   if(!confirm('Kirim pengumuman ini sebagai notifikasi ke SEMUA karyawan?'))return;
   $('btnKirimPeng').disabled=true;msg.textContent='Mengirim…';msg.style.color='#889';
-  const {error}=await sb.from('pengumuman').insert({judul,pesan,dibuat_oleh:($('whoName').textContent||'Admin')});
+  let gambar_url=null, gambar_path=null;
+  try{
+    if(file){
+      const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+      gambar_path=`${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+      const up=await sb.storage.from('pengumuman').upload(gambar_path,file,{contentType:file.type,upsert:false});
+      if(up.error) throw up.error;
+      gambar_url=sb.storage.from('pengumuman').getPublicUrl(gambar_path).data.publicUrl;
+    }
+  }catch(e){msg.textContent='Gagal upload gambar: '+e.message;msg.style.color='#dc2626';$('btnKirimPeng').disabled=false;return;}
+  const {error}=await sb.from('pengumuman').insert({judul,pesan,gambar_url,gambar_path,dibuat_oleh:($('whoName').textContent||'Admin')});
   if(error){msg.textContent='Gagal: '+error.message;msg.style.color='#dc2626';}
-  else{msg.textContent='Terkirim ✓ (notifikasi sedang dikirim)';msg.style.color='#059669';$('pengJudul').value='';$('pengPesan').value='';loadPeng();}
+  else{msg.textContent='Terkirim ✓ (notifikasi sedang dikirim)';msg.style.color='#059669';$('pengJudul').value='';$('pengPesan').value='';$('pengGambar').value='';$('pengPreview').style.display='none';loadPeng();}
   $('btnKirimPeng').disabled=false;
 };
 async function loadPeng(){
-  const {data}=await sb.from('pengumuman').select('judul,pesan,created_at').order('created_at',{ascending:false}).limit(30);
-  $('pengBody').innerHTML=(data&&data.length)?data.map(p=>`<tr><td>${fmt(p.created_at)}</td><td>${p.judul}</td><td>${p.pesan}</td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;color:#889;padding:12px">Belum ada pengumuman.</td></tr>';
+  const {data}=await sb.from('pengumuman').select('judul,pesan,gambar_url,created_at').order('created_at',{ascending:false}).limit(30);
+  $('pengBody').innerHTML=(data&&data.length)?data.map(p=>`<tr><td>${fmt(p.created_at)}</td><td>${p.judul}</td><td>${p.pesan}</td><td>${p.gambar_url?`<a href="${p.gambar_url}" target="_blank">lihat</a>`:'-'}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:#889;padding:12px">Belum ada pengumuman.</td></tr>';
 }
 
 /* ---------- DASHBOARD (ringkasan + aktivitas) ---------- */
