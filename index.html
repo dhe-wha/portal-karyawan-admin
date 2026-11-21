@@ -485,11 +485,14 @@ async function cariFoto(){
     let fotoUrl=null;
     try{const{data}=await sb.storage.from('foto-karyawan').createSignedUrl(k.no_karyawan+'.jpg',600);fotoUrl=data?.signedUrl;}catch(e){}
     const {data:kel}=await sb.from('keluarga_bpjs').select('*').eq('karyawan_id',k.id).order('id');
+    const {data:jm}=await sb.from('karyawan').select('no_jamsostek,no_bpjs').eq('id',k.id).maybeSingle();
     html+=`<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:18px">
       ${fotoUrl?`<img src="${fotoUrl}" class="foto">`:`<div class="foto" style="display:flex;align-items:center;justify-content:center;color:#aab;font-size:.7rem;text-align:center">Belum ada foto</div>`}
       <div style="flex:1">
         <div style="font-weight:700;color:#1e3a5f;font-size:1rem">${k.nama}</div>
         <div style="font-size:.76rem;color:#889;margin-bottom:8px">NIK ${k.no_karyawan} · ${k.perusahaan} · Bagian ${cap(k.departemen)} · Dept ${k.departemen_induk||'-'}</div>
+        <div style="font-size:.72rem;font-weight:700;color:#456;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Jaminan Sosial</div>
+        <div style="display:flex;gap:40px;font-size:.78rem;margin-bottom:12px"><div><div style="color:#889;font-size:.7rem">No. Jamsostek (BPJS TK)</div><div style="font-weight:600">${(jm&&jm.no_jamsostek)||'-'}</div></div><div><div style="color:#889;font-size:.7rem">BPJS Kesehatan</div><div style="font-weight:600">${(jm&&jm.no_bpjs)||'-'}</div></div></div>
         <div style="font-size:.72rem;font-weight:700;color:#456;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Keluarga Tercover BPJS</div>
         ${(kel&&kel.length)?`<table style="font-size:.78rem"><tbody>${kel.map(f=>`<tr><td style="padding:3px 8px 3px 0;color:#889">${cap(f.hubungan)}</td><td style="padding:3px 8px;font-weight:600">${f.nama}</td><td style="padding:3px 8px;color:#667">${f.no_jkn||'-'}</td></tr>`).join('')}</tbody></table>`:'<div class="hint">Belum ada data keluarga BPJS.</div>'}
       </div></div></div>`;
